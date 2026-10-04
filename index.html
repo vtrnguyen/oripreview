@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Universal File Previewer</title>
+<style>
+:root{--bg:#f5f6f8;--panel:#fff;--text:#171717;--muted:#6b7280;--line:#e5e7eb;--accent:#111827;--code:#f7f7f8}
+*{box-sizing:border-box} body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
+button{font:inherit}.app{height:100vh;display:grid;grid-template-rows:64px 1fr 42px}
+header{display:flex;align-items:center;gap:14px;padding:0 22px;background:var(--panel);border-bottom:1px solid var(--line)}
+.brand{font-weight:750;font-size:18px;letter-spacing:-.02em}.spacer{flex:1}
+.btn{border:1px solid var(--line);background:#fff;border-radius:9px;padding:9px 13px;cursor:pointer}.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+main{min-height:0;display:grid;grid-template-columns:280px 1fr}
+aside{background:var(--panel);border-right:1px solid var(--line);padding:20px;overflow:auto}
+.kicker{font-size:11px;font-weight:800;letter-spacing:.12em;color:var(--muted);margin-bottom:15px}
+.file-name{font-weight:700;word-break:break-all;margin-bottom:18px}.meta{display:grid;gap:12px;font-size:13px}
+.meta-row{display:grid;grid-template-columns:70px 1fr;gap:8px}.meta-row span:first-child{color:var(--muted)}
+.workspace{min-width:0;display:grid;grid-template-rows:52px 1fr;background:#fff}
+.toolbar{display:flex;align-items:center;padding:0 16px;border-bottom:1px solid var(--line);gap:8px}
+.title{font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.badge{font-size:11px;border:1px solid var(--line);border-radius:999px;padding:4px 8px;color:var(--muted)}
+.tabs{margin-left:auto;display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}.tab{border:0;background:#fff;padding:7px 11px;cursor:pointer}.tab.active{background:#f0f1f3;font-weight:650}
+.preview{overflow:auto;padding:28px;position:relative}.empty{height:100%;display:grid;place-items:center;text-align:center;color:var(--muted)}
+.drop{border:1.5px dashed #c9cdd4;border-radius:16px;padding:42px;max-width:560px;background:#fafafa;cursor:pointer;transition:.18s ease}.drop:hover,.drop:focus{border-color:#111827;background:#f4f5f7;outline:none;transform:translateY(-1px)}.drop strong{display:block;color:var(--text);font-size:20px;margin-bottom:8px}
+.preview.dragging:after{content:"Thả file để preview";position:absolute;inset:16px;display:grid;place-items:center;border:2px dashed #111827;border-radius:16px;background:rgba(255,255,255,.92);font-weight:750;font-size:22px}
+.markdown{max-width:900px;margin:auto;line-height:1.7}.markdown h1,.markdown h2,.markdown h3{line-height:1.25;margin-top:1.5em}.markdown pre,.source{background:var(--code);border:1px solid var(--line);border-radius:10px;padding:16px;overflow:auto;white-space:pre-wrap;word-break:break-word;font-family:Consolas,monospace;font-size:13px;line-height:1.55}.markdown code{background:#f1f2f4;padding:.15em .35em;border-radius:5px}.markdown pre code{background:none;padding:0}.markdown blockquote{border-left:4px solid #d1d5db;margin-left:0;padding-left:16px;color:#555}.markdown table,.csv-table{border-collapse:collapse;width:100%}.markdown th,.markdown td,.csv-table th,.csv-table td{border:1px solid var(--line);padding:9px 11px;text-align:left}.csv-table th{position:sticky;top:0;background:#f7f7f8}
+.media{max-width:100%;max-height:calc(100vh - 190px);display:block;margin:auto}.frame{width:100%;height:100%;border:0}.json-key{font-weight:700}
+footer{display:flex;align-items:center;padding:0 18px;border-top:1px solid var(--line);background:#fff;color:var(--muted);font-size:12px}
+.office-doc{max-width:850px;margin:0 auto;background:#fff;padding:52px 64px;box-shadow:0 2px 18px rgba(0,0,0,.08);min-height:900px;line-height:1.6}
+.office-doc img{max-width:100%}.office-doc table{border-collapse:collapse;max-width:100%}.office-doc td,.office-doc th{border:1px solid #bbb;padding:6px 9px}
+.sheet-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}.sheet-tab{border:1px solid var(--line);background:#fff;border-radius:7px;padding:6px 10px;cursor:pointer}.sheet-tab.active{background:#111827;color:#fff}
+.excel-wrap{overflow:auto}.excel-table{border-collapse:collapse;font-size:13px}.excel-table td,.excel-table th{border:1px solid #d8dadd;padding:6px 9px;min-width:70px;white-space:pre-wrap}.excel-table tr:first-child td{background:#f5f6f8;font-weight:650}
+.ppt-wrap{display:grid;grid-template-columns:190px 1fr;gap:18px;height:100%}.ppt-list{overflow:auto;border-right:1px solid var(--line);padding-right:12px}.ppt-thumb{width:100%;text-align:left;border:1px solid var(--line);background:#fff;border-radius:8px;padding:9px;margin-bottom:8px;cursor:pointer}.ppt-thumb.active{border-color:#111827;background:#f5f6f8}.ppt-slide{max-width:960px;aspect-ratio:16/9;margin:auto;border:1px solid var(--line);box-shadow:0 3px 18px rgba(0,0,0,.08);padding:42px;background:white;overflow:auto}.ppt-slide h2{margin-top:0}.ppt-text{margin:8px 0;white-space:pre-wrap}
+@media(max-width:720px){main{grid-template-columns:1fr}aside{display:none}.preview{padding:16px}.brand span{display:none}}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="brand"><span>OriPreview</span></div>
+  <input type="file" id="fileInput" hidden>
+</header>
+
+<main>
+<aside>
+  <div class="kicker">FILE INFORMATION</div>
+  <div class="file-name" id="sideName">Chưa chọn file</div>
+  <div class="meta">
+    <div class="meta-row"><span>Type</span><span id="sideType">—</span></div>
+    <div class="meta-row"><span>Size</span><span id="sideSize">—</span></div>
+    <div class="meta-row"><span>Modified</span><span id="sideDate">—</span></div>
+  </div>
+</aside>
+
+<section class="workspace">
+  <div class="toolbar">
+    <div class="title" id="topName">Preview</div>
+    <div class="badge" id="badge">No file</div>
+    <div class="tabs" id="tabs" hidden>
+      <button class="tab active" data-mode="preview">Preview</button>
+      <button class="tab" data-mode="source">Source</button>
+    </div>
+  </div>
+  <div class="preview" id="preview">
+    <div class="empty"><div class="drop" id="dropZone" role="button" tabindex="0" aria-label="Chọn hoặc kéo thả file">
+      <strong>Kéo thả file vào đây</strong>
+      hoặc <b>nhấn vào khu vực này để chọn file</b> từ máy tính.<br><br>
+      DOCX · XLSX/XLS · PPTX · Markdown · HTML · CSV · JSON · TXT · PDF · Media
+    </div></div>
+  </div>
+</section>
+</main>
+<footer>Orgin Dev - 2026</footer>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const preview=$('#preview'), input=$('#fileInput'), tabs=$('#tabs');
+let currentFile=null, currentText=null, currentUrl=null, mode='preview';
+
+preview.addEventListener('click',e=>{
+ const zone=e.target.closest('#dropZone');
+ if(zone) input.click();
+});
+preview.addEventListener('keydown',e=>{
+ if((e.key==='Enter'||e.key===' ')&&e.target.closest('#dropZone')){
+  e.preventDefault();
+  input.click();
+ }
+});
+input.onchange=()=>input.files[0]&&loadFile(input.files[0]);
+
+['dragenter','dragover'].forEach(e=>preview.addEventListener(e,x=>{x.preventDefault();preview.classList.add('dragging')}));
+['dragleave','drop'].forEach(e=>preview.addEventListener(e,x=>{x.preventDefault();preview.classList.remove('dragging')}));
+preview.addEventListener('drop',e=>e.dataTransfer.files[0]&&loadFile(e.dataTransfer.files[0]));
+
+tabs.addEventListener('click',e=>{
+ if(!e.target.matches('.tab'))return;
+ mode=e.target.dataset.mode;
+ document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===e.target));
+ render();
+});
+
+function ext(name){return (name.split('.').pop()||'').toLowerCase()}
+function formatSize(n){if(n<1024)return n+' B';if(n<1048576)return(n/1024).toFixed(1)+' KB';if(n<1073741824)return(n/1048576).toFixed(1)+' MB';return(n/1073741824).toFixed(2)+' GB'}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
+function fileKind(f){
+ const e=ext(f.name), t=f.type;
+ if(e==='docx')return'Word';
+ if(e==='xlsx'||e==='xls')return'Excel';
+ if(e==='pptx')return'PowerPoint';
+ if(['md','markdown'].includes(e))return'Markdown';
+ if(['html','htm'].includes(e))return'HTML';
+ if(['csv','tsv'].includes(e))return e.toUpperCase();
+ if(e==='json')return'JSON';
+ if(t.startsWith('image/'))return'Image';
+ if(t.startsWith('audio/'))return'Audio';
+ if(t.startsWith('video/'))return'Video';
+ if(t==='application/pdf'||e==='pdf')return'PDF';
+ if(['js','mjs','cjs','ts','tsx','jsx','css','scss','java','cs','py','php','rb','go','rs','sql','xml','yml','yaml','sh','bat','ps1','c','cpp','h','hpp','vue','svelte','log','txt'].includes(e))return'Code / Text';
+ return t.startsWith('text/')?'Text':'Unknown';
+}
+async function loadFile(file){
+ if(currentUrl)URL.revokeObjectURL(currentUrl);
+ currentFile=file; currentText=null; currentUrl=URL.createObjectURL(file); mode='preview';
+ const kind=fileKind(file);
+ $('#sideName').textContent=$('#topName').textContent=file.name;
+ $('#sideType').textContent=kind; $('#sideSize').textContent=formatSize(file.size);
+ $('#sideDate').textContent=new Date(file.lastModified).toLocaleString('vi-VN');
+ $('#badge').textContent=kind;
+ const textual=['Markdown','HTML','CSV','TSV','JSON','Code / Text','Text'].includes(kind);
+ tabs.hidden=!textual;
+ document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.mode==='preview'));
+ if(textual){try{currentText=await file.text()}catch(e){currentText='Không thể đọc file.'}}
+ render();
+}
+function render(){
+ if(!currentFile)return;
+ const kind=fileKind(currentFile);
+ if(mode==='source'&&currentText!==null){preview.innerHTML='<pre class="source">'+escapeHtml(currentText)+'</pre>';return}
+ if(kind==='Word') renderWord();
+ else if(kind==='Excel') renderExcel();
+ else if(kind==='PowerPoint') renderPowerPoint();
+ else if(kind==='Markdown') renderMarkdown(currentText);
+ else if(kind==='HTML') preview.innerHTML='<iframe class="frame" sandbox srcdoc="'+escapeHtml(currentText)+'"></iframe>';
+ else if(kind==='CSV'||kind==='TSV') renderCSV(currentText,kind==='TSV'?'\\t':',');
+ else if(kind==='JSON') renderJSON(currentText);
+ else if(kind==='Image') preview.innerHTML='<img class="media" alt="Preview" src="'+currentUrl+'">';
+ else if(kind==='PDF') preview.innerHTML='<iframe class="frame" src="'+currentUrl+'"></iframe>';
+ else if(kind==='Audio') preview.innerHTML='<div class="empty"><audio controls src="'+currentUrl+'"></audio></div>';
+ else if(kind==='Video') preview.innerHTML='<video class="media" controls src="'+currentUrl+'"></video>';
+ else if(kind==='Code / Text'||kind==='Text') preview.innerHTML='<pre class="source">'+escapeHtml(currentText)+'</pre>';
+ else preview.innerHTML='<div class="empty"><div><strong>Chưa hỗ trợ preview định dạng này.</strong><br><br>'+escapeHtml(currentFile.name)+'</div></div>';
+}
+
+async function renderWord(){
+ if(!window.mammoth){preview.innerHTML=libError('Mammoth.js');return}
+ preview.innerHTML='<div class="empty">Đang đọc tài liệu Word...</div>';
+ try{
+  const buf=await currentFile.arrayBuffer();
+  const result=await mammoth.convertToHtml({arrayBuffer:buf});
+  preview.innerHTML='<article class="office-doc">'+result.value+'</article>';
+ }catch(e){preview.innerHTML=officeError('Word',e)}
+}
+async function renderExcel(){
+ if(!window.XLSX){preview.innerHTML=libError('SheetJS');return}
+ preview.innerHTML='<div class="empty">Đang đọc workbook...</div>';
+ try{
+  const buf=await currentFile.arrayBuffer(), wb=XLSX.read(buf,{type:'array',cellDates:true});
+  window.__wb=wb;
+  const buttons=wb.SheetNames.map((n,i)=>'<button class="sheet-tab '+(i===0?'active':'')+'" onclick="showSheet('+i+',this)">'+escapeHtml(n)+'</button>').join('');
+  preview.innerHTML='<div class="sheet-tabs">'+buttons+'</div><div class="excel-wrap" id="sheetView"></div>';
+  showSheet(0,preview.querySelector('.sheet-tab'));
+ }catch(e){preview.innerHTML=officeError('Excel',e)}
+}
+function showSheet(i,btn){
+ const wb=window.__wb;if(!wb)return;
+ document.querySelectorAll('.sheet-tab').forEach(x=>x.classList.remove('active'));if(btn)btn.classList.add('active');
+ const ws=wb.Sheets[wb.SheetNames[i]];
+ document.getElementById('sheetView').innerHTML=XLSX.utils.sheet_to_html(ws,{id:'excelTable'});
+ const t=document.querySelector('#excelTable');if(t)t.className='excel-table';
+}
+async function renderPowerPoint(){
+ if(!window.JSZip){preview.innerHTML=libError('JSZip');return}
+ preview.innerHTML='<div class="empty">Đang phân tích PowerPoint...</div>';
+ try{
+  const zip=await JSZip.loadAsync(await currentFile.arrayBuffer());
+  const names=Object.keys(zip.files).filter(n=>/^ppt\/slides\/slide\d+\.xml$/.test(n))
+   .sort((a,b)=>(+a.match(/slide(\d+)/)[1])-(+b.match(/slide(\d+)/)[1]));
+  if(!names.length)throw new Error('Không tìm thấy slide.');
+  const slides=[];
+  for(const name of names){
+   const xml=await zip.file(name).async('text');
+   const doc=new DOMParser().parseFromString(xml,'application/xml');
+   const texts=[...doc.getElementsByTagNameNS('*','t')].map(x=>x.textContent).filter(Boolean);
+   slides.push(texts);
+  }
+  window.__pptSlides=slides;
+  const list=slides.map((x,i)=>'<button class="ppt-thumb '+(i===0?'active':'')+'" onclick="showSlide('+i+',this)"><b>Slide '+(i+1)+'</b><br><span>'+escapeHtml((x.join(' ')||'(Không có text)').slice(0,90))+'</span></button>').join('');
+  preview.innerHTML='<div class="ppt-wrap"><div class="ppt-list">'+list+'</div><div id="pptStage"></div></div>';
+  showSlide(0,preview.querySelector('.ppt-thumb'));
+ }catch(e){preview.innerHTML=officeError('PowerPoint',e)}
+}
+function showSlide(i,btn){
+ document.querySelectorAll('.ppt-thumb').forEach(x=>x.classList.remove('active'));if(btn)btn.classList.add('active');
+ const texts=(window.__pptSlides&&window.__pptSlides[i])||[];
+ let h='<div class="ppt-slide">';
+ if(texts.length) h+='<h2>'+escapeHtml(texts[0])+'</h2>'+texts.slice(1).map(t=>'<div class="ppt-text">'+escapeHtml(t)+'</div>').join('');
+ else h+='<div class="empty">Slide không có văn bản có thể trích xuất.</div>';
+ document.getElementById('pptStage').innerHTML=h+'</div>';
+}
+function libError(name){return '<div class="empty"><div><strong>Không tải được '+name+'.</strong><br><br>Bản Office Preview cần kết nối Internet để tải thư viện JavaScript từ CDN.</div></div>'}
+function officeError(type,e){return '<div class="empty"><div><strong>Không thể đọc file '+type+'.</strong><br><br>'+escapeHtml(e.message||String(e))+'</div></div>'}
+
+function renderMarkdown(md){
+ let s=escapeHtml(md);
+ s=s.replace(/^```([\w-]*)\n([\s\S]*?)^```/gm,(m,l,c)=>'<pre><code>'+c.replace(/\n$/,'')+'</code></pre>');
+ s=s.replace(/^###### (.*)$/gm,'<h6>$1</h6>').replace(/^##### (.*)$/gm,'<h5>$1</h5>')
+ .replace(/^#### (.*)$/gm,'<h4>$1</h4>').replace(/^### (.*)$/gm,'<h3>$1</h3>')
+ .replace(/^## (.*)$/gm,'<h2>$1</h2>').replace(/^# (.*)$/gm,'<h1>$1</h1>')
+ .replace(/^&gt; (.*)$/gm,'<blockquote>$1</blockquote>')
+ .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/__(.*?)__/g,'<strong>$1</strong>')
+ .replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g,'<em>$1</em>')
+ .replace(/`([^`\n]+)`/g,'<code>$1</code>')
+ .replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g,'<span title="Local/remote images are not loaded in offline Markdown preview">🖼 $1</span>')
+ .replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+ .replace(/^(?:-|\*) (.*)$/gm,'<li>$1</li>');
+ s=s.replace(/(?:<li>.*<\/li>\n?)+/g,m=>'<ul>'+m+'</ul>');
+ s=s.split(/\n{2,}/).map(x=>/^\s*<(h\d|pre|ul|blockquote)/.test(x)?x:'<p>'+x.replace(/\n/g,'<br>')+'</p>').join('');
+ preview.innerHTML='<article class="markdown">'+s+'</article>';
+}
+function parseDelimited(text,delimiter){
+ const rows=[];let row=[],cell='',q=false;
+ for(let i=0;i<text.length;i++){const c=text[i],n=text[i+1];
+  if(c==='"'){if(q&&n==='"'){cell+='"';i++}else q=!q}
+  else if(c===delimiter&&!q){row.push(cell);cell=''}
+  else if((c==='\n'||c==='\r')&&!q){if(c==='\r'&&n==='\n')i++;row.push(cell);cell='';if(row.some(x=>x!==''))rows.push(row);row=[]}
+  else cell+=c;
+ }
+ row.push(cell);if(row.some(x=>x!==''))rows.push(row);return rows;
+}
+function renderCSV(text,delimiter){
+ const rows=parseDelimited(text,delimiter);
+ if(!rows.length){preview.innerHTML='<div class="empty">File không có dữ liệu.</div>';return}
+ let h='<div style="overflow:auto"><table class="csv-table"><thead><tr>'+rows[0].map(x=>'<th>'+escapeHtml(x)+'</th>').join('')+'</tr></thead><tbody>';
+ for(const r of rows.slice(1))h+='<tr>'+r.map(x=>'<td>'+escapeHtml(x)+'</td>').join('')+'</tr>';
+ preview.innerHTML=h+'</tbody></table></div>';
+}
+function renderJSON(text){
+ try{const pretty=JSON.stringify(JSON.parse(text),null,2);preview.innerHTML='<pre class="source">'+escapeHtml(pretty)+'</pre>'}
+ catch(e){preview.innerHTML='<div class="empty"><div><strong>JSON không hợp lệ</strong><br><br>'+escapeHtml(e.message)+'</div></div>'}
+}
+</script>
+</body>
+</html>
